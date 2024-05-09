@@ -92,7 +92,19 @@ exports.updateOrderStatusAdmin = async (req, res) => {
         .status(StatusCodes.BAD_REQUEST)
         .json({ error: "Order cannot be updated" });
     }
-
+    await Promise.all(
+      order.items.map(async (item) => {
+        const product = await Product.findById(item.productId);
+        await Product.findByIdAndUpdate(
+          product._id,
+          {
+            countInStock: product.countInStock + item.quantity,
+            purchases: product.purchases - item.quantity,
+          },
+          { new: true }
+        );
+      })
+    );
     order.status = status;
     await order.save();
 
@@ -108,9 +120,9 @@ exports.updateOrderStatusAdmin = async (req, res) => {
 exports.getOrderByUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const order = await Order.find();
+    const order = await Order.find({ userId });
     if (!order) {
-      return res.status(StatusCodes.NOT_FOUND).json(1);
+      return res.status(StatusCodes.NOT_FOUND).json(0);
     }
     return res.status(StatusCodes.OK).json(order);
   } catch (error) {
